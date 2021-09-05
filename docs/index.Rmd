@@ -7,12 +7,24 @@ output:
     thubnails: False
     highlight: default
     self_contained: False
-    df_print: kable
-    code_folding: hide
+    code_folding: show
 ---
 
 
 # Data
+
+Data on Songs from Billboard 1999-2019 from [kaggle](https://www.kaggle.com/danield2255/data-on-songs-from-billboard-19992019).
+
+
+<!-- -->
+
+    Info about each Hot 100 entry with variables such as:
+    • Song
+    • Artist
+    • Genre
+    • Weekly rank
+    • Weeks on chart
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -25,6 +37,14 @@ knitr::opts_chunk$set(
 
 
 # Creating the graph
+
+Data is filtered to only include songs with multiple artists. Only songs from 2010 onwards are selected.
+Each artists gets assigned a genre by finding the most common genre of the *songs* they appear on.
+So your favorite indie band might be classified as "pop" is their only song that charted is
+a pop song. Artist are obviously the nodes and the collaborations on the songs between artsits make up the edges.
+Edges weights are taken from the highest charting position (higher charting position = bigger edge weight).
+
+
 ```{r}
 library(tidygraph)
 library(ggraph)
@@ -58,7 +78,6 @@ y <- x %>%
     weight = 100 - Peak.position
   )
 
-write_csv(y,here("data/output/billboard_clean.csv"))
 
 # Assigning a genre to an artist based on the genre of the songs they appear on
 artists <- distinct(as_tibble(unlist(y$list_of_artists)))
@@ -81,6 +100,7 @@ artist_genre <- unnest_longer(y, col = list_of_genres) %>%
 artist_genre$list_of_genres <- fct_lump_n(artist_genre$list_of_genres, 6)
 artists <- left_join(artists, artist_genre, c("value" = "list_of_artists"))
 artists <- artists[1:2]
+artists$list_of_genres <- fct_recode(artists$list_of_genres,"En español" = "En Espa\\xc3\\xb1ol")
 
 # Constructing the graph
 y <- y %>% filter(lengths(list_of_artists) > 1)
@@ -114,19 +134,28 @@ saveRDS(graph,file=here("data/output/graph.RDS"))
 
 ```{r}
 # Graph analysis
-as_tibble(graph) %>% slice_max(degr,n=5)
-as_tibble(graph) %>% slice_max(degr_weighted, n=5)
+as_tibble(graph) %>% slice_max(degr,n=5) %>% knitr::kable(col.names=c("Artist","Genre","Degree","Weighted degree"))
+as_tibble(graph) %>% slice_max(degr_weighted, n=5) %>% knitr::kable(col.names=c("Artist","Genre","Degree","Weighted degree"))
 ```
 
-# To do
+As we can see Future, Nicki Minaj, and Drake are some of the most profilic collaborators on the charts.
+We get a similar view if weighting songs by the their highest charting position too. 
 
-- 
+# Potentially to do
 
-- 
-
-- 
+- Edge betweenness centrality (finding the most 'influential' song)
+- Calculating connectivity and finding the songs, which when removed disconnect the biggest component.
+- Since only songs from 2010 onwards were analysed compare the graph to past past trends 
+(were there less collaborations in the previous decades?).
+- Highlight and plot the diameter of the graph
+- Select only songs charting #1 (or maybe only in the top 10) and create a graph of them.
+- Create a Shiny app that allow to select and artist to center on and plot.
+- Create a Shiny app to shiny select artists to find paths between them.
+- Calculate transitivity (artists whose collabs also collaborate with each other).
+- Calculate Node similarity (finding artist with similar collaboration patterns).
 
 # Visualising the graph
+
 
 ## All genres
 
@@ -164,6 +193,7 @@ plot_graph <- function(graph, plot_subtitle) {
 }
 ```
 
+As we can see the 'big' component is made up of mostly pop or rap songs
 
 ```{r}
 plot_graph(graph,"In songs of all genres")
@@ -171,6 +201,8 @@ plot_graph(graph,"In songs of all genres")
 
 
 ## Pop songs
+
+Since pop (together with rap) are the most popular genres, the graph is filtered to only include pop songs.
 
 ```{r}
 # Filtering out only a single genre
@@ -190,6 +222,8 @@ plot_graph(subset_genre(graph,"Pop"),"In pop songs only")
 
 ## Rap songs
 
+The same thing is done for rap songs.
+
 ```{r}
 plot_graph(subset_genre(graph,"Hip-Hop|Rap|Trap"),"In rap songs only")
 ```
@@ -197,6 +231,9 @@ plot_graph(subset_genre(graph,"Hip-Hop|Rap|Trap"),"In rap songs only")
 
 
 ## Visualising clusters
+
+Instead of coloring nodes by the artist's genre, using an algorithm to assign a group to an node.
+In this case 13 distinct groups are calculated.
 
 ```{r}
 # Calculate the clusters
@@ -208,7 +245,7 @@ graph <- graph %>%
   unmorph()
 
 
-myColors <- c(brewer.pal(13, "Paired"), "black")
+myColors <- c(brewer.pal(13, "Paired"), "grey")
 names(myColors) <- levels(as_tibble(graph)$clust)
 
 
@@ -243,7 +280,7 @@ plot_clusters <- function(graph, xlimit, ylimit, groups) {
 }
 ```
 
-
+Zooming in on parts of the graph to easier see the clusters.
 
 ```{r}
 plot_clusters(graph,c(-4,3),c(0,8),c(1:13))

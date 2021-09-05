@@ -184,7 +184,7 @@ pre code {
 <li><a href="#data">Data</a></li>
 <li><a href="#creating-the-graph">Creating the graph</a></li>
 <li><a href="#graph-analysis">Graph analysis</a></li>
-<li><a href="#to-do">To do</a></li>
+<li><a href="#potentially-to-do">Potentially to do</a></li>
 <li><a href="#visualising-the-graph">Visualising the graph</a>
 <ul>
 <li><a href="#all-genres">All genres</a></li>
@@ -198,9 +198,18 @@ pre code {
 
 <div id="data" class="section level1">
 <h1>Data</h1>
+<p>Data on Songs from Billboard 1999-2019 from <a href="https://www.kaggle.com/danield2255/data-on-songs-from-billboard-19992019">kaggle</a>.</p>
+<!-- -->
+<pre><code>Info about each Hot 100 entry with variables such as:
+• Song
+• Artist
+• Genre
+• Weekly rank
+• Weeks on chart</code></pre>
 </div>
 <div id="creating-the-graph" class="section level1">
 <h1>Creating the graph</h1>
+<p>Data is filtered to only include songs with multiple artists. Only songs from 2010 onwards are selected. Each artists gets assigned a genre by finding the most common genre of the <em>songs</em> they appear on. So your favorite indie band might be classified as “pop” is their only song that charted is a pop song. Artist are obviously the nodes and the collaborations on the songs between artsits make up the edges. Edges weights are taken from the highest charting position (higher charting position = bigger edge weight).</p>
 <pre class="r"><code>library(tidygraph)
 library(ggraph)
 library(tidyverse)
@@ -233,7 +242,6 @@ y &lt;- x %&gt;%
     weight = 100 - Peak.position
   )
 
-write_csv(y,here(&quot;data/output/billboard_clean.csv&quot;))
 
 # Assigning a genre to an artist based on the genre of the songs they appear on
 artists &lt;- distinct(as_tibble(unlist(y$list_of_artists)))
@@ -256,6 +264,7 @@ artist_genre &lt;- unnest_longer(y, col = list_of_genres) %&gt;%
 artist_genre$list_of_genres &lt;- fct_lump_n(artist_genre$list_of_genres, 6)
 artists &lt;- left_join(artists, artist_genre, c(&quot;value&quot; = &quot;list_of_artists&quot;))
 artists &lt;- artists[1:2]
+artists$list_of_genres &lt;- fct_recode(artists$list_of_genres,&quot;En español&quot; = &quot;En Espa\\xc3\\xb1ol&quot;)
 
 # Constructing the graph
 y &lt;- y %&gt;% filter(lengths(list_of_artists) &gt; 1)
@@ -287,15 +296,14 @@ saveRDS(graph,file=here(&quot;data/output/graph.RDS&quot;))</code></pre>
 <div id="graph-analysis" class="section level1">
 <h1>Graph analysis</h1>
 <pre class="r"><code># Graph analysis
-as_tibble(graph) %&gt;% slice_max(degr,n=5)</code></pre>
-<div class="kable-table">
+as_tibble(graph) %&gt;% slice_max(degr,n=5) %&gt;% knitr::kable(col.names=c(&quot;Artist&quot;,&quot;Genre&quot;,&quot;Degree&quot;,&quot;Weighted degree&quot;))</code></pre>
 <table>
 <thead>
 <tr class="header">
-<th align="left">value</th>
-<th align="left">list_of_genres</th>
-<th align="right">degr</th>
-<th align="right">degr_weighted</th>
+<th align="left">Artist</th>
+<th align="left">Genre</th>
+<th align="right">Degree</th>
+<th align="right">Weighted degree</th>
 </tr>
 </thead>
 <tbody>
@@ -331,16 +339,14 @@ as_tibble(graph) %&gt;% slice_max(degr,n=5)</code></pre>
 </tr>
 </tbody>
 </table>
-</div>
-<pre class="r"><code>as_tibble(graph) %&gt;% slice_max(degr_weighted, n=5)</code></pre>
-<div class="kable-table">
+<pre class="r"><code>as_tibble(graph) %&gt;% slice_max(degr_weighted, n=5) %&gt;% knitr::kable(col.names=c(&quot;Artist&quot;,&quot;Genre&quot;,&quot;Degree&quot;,&quot;Weighted degree&quot;))</code></pre>
 <table>
 <thead>
 <tr class="header">
-<th align="left">value</th>
-<th align="left">list_of_genres</th>
-<th align="right">degr</th>
-<th align="right">degr_weighted</th>
+<th align="left">Artist</th>
+<th align="left">Genre</th>
+<th align="right">Degree</th>
+<th align="right">Weighted degree</th>
 </tr>
 </thead>
 <tbody>
@@ -376,14 +382,20 @@ as_tibble(graph) %&gt;% slice_max(degr,n=5)</code></pre>
 </tr>
 </tbody>
 </table>
+<p>As we can see Future, Nicki Minaj, and Drake are some of the most profilic collaborators on the charts. We get a similar view if weighting songs by the their highest charting position too.</p>
 </div>
-</div>
-<div id="to-do" class="section level1">
-<h1>To do</h1>
+<div id="potentially-to-do" class="section level1">
+<h1>Potentially to do</h1>
 <ul>
-<li></li>
-<li></li>
-<li></li>
+<li>Edge betweenness centrality (finding the most ‘influential’ song)</li>
+<li>Calculating connectivity and finding the songs, which when removed disconnect the biggest component.</li>
+<li>Since only songs from 2010 onwards were analysed compare the graph to past past trends (were there less collaborations in the previous decades?).</li>
+<li>Highlight and plot the diameter of the graph</li>
+<li>Select only songs charting #1 (or maybe only in the top 10) and create a graph of them.</li>
+<li>Create a Shiny app that allow to select and artist to center on and plot.</li>
+<li>Create a Shiny app to shiny select artists to find paths between them.</li>
+<li>Calculate transitivity (artists whose collabs also collaborate with each other).</li>
+<li>Calculate Node similarity (finding artist with similar collaboration patterns).</li>
 </ul>
 </div>
 <div id="visualising-the-graph" class="section level1">
@@ -421,11 +433,13 @@ plot_graph &lt;- function(graph, plot_subtitle) {
     labs(title = &quot;Artist collaborations&quot;, 
          subtitle = plot_subtitle)
 }</code></pre>
+<p>As we can see the ‘big’ component is made up of mostly pop or rap songs</p>
 <pre class="r"><code>plot_graph(graph,&quot;In songs of all genres&quot;)</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-4-1.png" width="2400" /></p>
 </div>
 <div id="pop-songs" class="section level2">
 <h2>Pop songs</h2>
+<p>Since pop (together with rap) are the most popular genres, the graph is filtered to only include pop songs.</p>
 <pre class="r"><code># Filtering out only a single genre
 subset_genre &lt;- function(graph, genre_filter) {
   graph &lt;- graph %&gt;%
@@ -443,11 +457,13 @@ plot_graph(subset_genre(graph,&quot;Pop&quot;),&quot;In pop songs only&quot;) </
 </div>
 <div id="rap-songs" class="section level2">
 <h2>Rap songs</h2>
+<p>The same thing is done for rap songs.</p>
 <pre class="r"><code>plot_graph(subset_genre(graph,&quot;Hip-Hop|Rap|Trap&quot;),&quot;In rap songs only&quot;)</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-6-1.png" width="2400" /></p>
 </div>
 <div id="visualising-clusters" class="section level2">
 <h2>Visualising clusters</h2>
+<p>Instead of coloring nodes by the artist’s genre, using an algorithm to assign a group to an node. In this case 13 distinct groups are calculated.</p>
 <pre class="r"><code># Calculate the clusters
 graph &lt;- graph %&gt;%
   mutate(clust = as_factor(tidygraph::group_louvain(weights = weights))) %&gt;%
@@ -457,7 +473,7 @@ graph &lt;- graph %&gt;%
   unmorph()
 
 
-myColors &lt;- c(brewer.pal(13, &quot;Paired&quot;), &quot;black&quot;)
+myColors &lt;- c(brewer.pal(13, &quot;Paired&quot;), &quot;grey&quot;)
 names(myColors) &lt;- levels(as_tibble(graph)$clust)
 
 
@@ -490,6 +506,7 @@ ggraph(graph, layout = &quot;kk&quot;) +
     xlim(xlimit) +
     ylim(ylimit)
 }</code></pre>
+<p>Zooming in on parts of the graph to easier see the clusters.</p>
 <pre class="r"><code>plot_clusters(graph,c(-4,3),c(0,8),c(1:13))</code></pre>
 <p><img src="index_files/figure-html/unnamed-chunk-8-1.png" width="2400" /></p>
 <pre class="r"><code>plot_clusters(graph,c(0,6),c(-4,3),c(1:13))</code></pre>
@@ -511,7 +528,7 @@ ggraph(graph, layout = &quot;kk&quot;) +
 ##  collate  Lithuanian_Lithuania.1257   
 ##  ctype    Lithuanian_Lithuania.1257   
 ##  tz       Europe/Helsinki             
-##  date     2021-09-04                  
+##  date     2021-09-05                  
 ## 
 ## - Packages -------------------------------------------------------------------
 ##  package      * version date       lib source        
@@ -658,7 +675,7 @@ $(document).ready(function () {
 <!-- code folding -->
 <script>
 $(document).ready(function () {
-  window.initializeCodeFolding("hide" === "show");
+  window.initializeCodeFolding("show" === "show");
 });
 </script>
 
