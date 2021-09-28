@@ -1,5 +1,7 @@
 ## Goals
 
+<img src="microphone.png" align="right" width="140" />
+
 Analyse artist collaboration in Billboard Hot 100 songs:
 
 - Create a graph from the data
